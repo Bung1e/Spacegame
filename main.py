@@ -70,7 +70,6 @@ class Bullet(pygame.sprite.Sprite):
         if self.rect.bottom < 0:
             self.kill()
 
-# Alien class
 class Alien(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()

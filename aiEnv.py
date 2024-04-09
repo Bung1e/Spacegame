@@ -28,8 +28,6 @@ life_image = pygame.transform.scale(life_image, (25, 25))
 pygame.mixer.init()
 
 
-
-
 # Player class
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -123,6 +121,57 @@ def reset():
     player = Player()
     all_sprites.add(player)
 
+def play_step(action):
+    global lives, score, game_over
+
+    if action == 0:
+        player.shoot()
+    elif action == 1:
+        player.speed_x = -5
+    elif action == 2:
+        player.speed_x = 5
+    else:
+        player.speed_x = 0
+
+    all_sprites.update()
+
+    hits = pygame.sprite.groupcollide(bullets, aliens, True, True)
+
+    # Check if a alien is destroyed and increase score
+    if len(hits) > 0:
+        score += 1
+        
+    # Check if player gets an extra life from destroying aliens
+    if len(hits) > 0 and random.random() < 0.05:  # 5% chance
+        lives += 1
+
+    # Check if aliens reach the bottom
+    for alien in aliens:
+        if alien.rect.top > SCREEN_HEIGHT - 10:
+            lives -= 1
+            alien.kill()
+
+    # Spawn new aliens
+    if len(aliens) < 5 and random.random() < 0.02:
+        new_alien = Alien()
+        all_sprites.add(new_alien)
+        aliens.add(new_alien)
+
+    # Вычисление награды
+    reward = 0
+    if len(pygame.sprite.groupcollide(bullets, aliens, True, True)) > 0:
+        reward = 1  
+    if pygame.sprite.spritecollideany(player, aliens):
+        lives -= 1
+        reward = -10 
+    for alien in aliens:
+        if alien.rect.top > SCREEN_HEIGHT - 10:
+            lives -= 1
+            alien.kill
+            reward = -10
+
+    done = lives <= 0
+    return reward, done, score
 
 def load_highscore():
     try:
@@ -138,6 +187,7 @@ def save_highscore(score):
     # ! Main game loop
 async def main():
     global lives, score
+    reset()
     running = True
     clock = pygame.time.Clock()
 
