@@ -10,7 +10,9 @@ LR = 0.001
 
 class Agent:
     def __init__(self):
-        pass
+        self.n_games = 0
+        self.epsilon = 0
+        self.gamma = 0
 
     def get_state(self, game):
         pass
@@ -28,8 +30,12 @@ class Agent:
         pass
 
 def train():
-    pass
+    all_scores = []
+    all_penalties = []
+    epochs, penalties, reward, = 0, 0, 0
+    done = False
+    while True:
+        pass
 
 if __name__ == '__main__':
     train()
-        

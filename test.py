@@ -34,7 +34,7 @@ class Player(pygame.sprite.Sprite):
         self.speed_x = 0
 
     def update(self):
-        self.speed_x = 0
+        # self.speed_x = 0
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:
             self.speed_x = -5
@@ -100,9 +100,9 @@ class GalacticShooterAI:
         self.score = 0
         self.lives = 3
         self.game_over = False
-        self._place_alien()
+        self.place_alien()
 
-    def _place_alien(self):
+    def place_alien(self):
         alien = Alien()
         self.all_sprites.add(alien)
         self.aliens.add(alien)
@@ -113,7 +113,7 @@ class GalacticShooterAI:
                 pygame.quit()
                 quit()
         
-        self._move(action)
+        self.move(action)
         self.all_sprites.update()
 
         reward = 0
@@ -127,12 +127,12 @@ class GalacticShooterAI:
         for hit in hits:
             self.score += 1
             reward = 10
-            self._place_alien()
+            self.place_alien()
             
         if len(self.aliens) < 3 and random.random() < 0.02:
-            self._place_alien()
+            self.place_alien()
 
-        self._update_ui()
+        self.update_ui()
         self.clock.tick(60)
         return reward, game_over, self.score
 
@@ -143,11 +143,10 @@ class GalacticShooterAI:
                 return True
         return False
 
-    def _update_ui(self):
+    def update_ui(self):
         self.display.fill(BLACK)
         self.all_sprites.draw(self.display)
 
-        # Draw score and lives
         score_text = font.render(f"Score: {self.score}", True, WHITE)
         self.display.blit(score_text, (10, 10))
 
@@ -156,7 +155,7 @@ class GalacticShooterAI:
 
         pygame.display.flip()
 
-    def _move(self, action):
+    def move(self, action):
         if action == Direction.LEFT:
             self.player.speed_x = -5
         elif action == Direction.RIGHT:
@@ -169,5 +168,5 @@ class GalacticShooterAI:
 if __name__ == "__main__":
     game = GalacticShooterAI()
     while True:
-        action = random.choice(list(Direction))  # Random action for testing
+        action = random.choice(list(Direction))
         game.play_step(action)
