@@ -1,7 +1,6 @@
 import pygame
 import random
 import os
-import asyncio
 
 pygame.init()
 
@@ -23,9 +22,6 @@ alien_image = pygame.transform.scale(alien_image, (30, 30))
 
 life_image = pygame.image.load(os.path.join("images", "heart.png")).convert_alpha()
 life_image = pygame.transform.scale(life_image, (25, 25))
-
-
-
 
 # Player class
 class Player(pygame.sprite.Sprite):
