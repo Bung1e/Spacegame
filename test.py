@@ -19,7 +19,7 @@ player_image = pygame.image.load(os.path.join("images", "rocket-ship.png")).conv
 player_image = pygame.transform.scale(player_image, (50, 50))
 
 alien_image = pygame.image.load(os.path.join("images", "space-invaders.png")).convert_alpha()
-alien_image = pygame.transform.scale(alien_image, (30, 30))
+alien_image = pygame.transform.scale(alien_image, (40, 40))
 
 life_image = pygame.image.load(os.path.join("images", "heart.png")).convert_alpha()
 life_image = pygame.transform.scale(life_image, (25, 25))
@@ -34,12 +34,6 @@ class Player(pygame.sprite.Sprite):
         self.speed_x = 0
 
     def update(self):
-        # self.speed_x = 0
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            self.speed_x = -5
-        if keys[pygame.K_RIGHT]:
-            self.speed_x = 5
         self.rect.x += self.speed_x
         self.rect.x = max(0, min(SCREEN_WIDTH - self.rect.width, self.rect.x))
 
@@ -52,7 +46,7 @@ class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
         self.image = pygame.Surface((3, 15))
-        self.image.fill((0, 255, 0))
+        self.image.fill((255, 0, 0))
         self.rect = self.image.get_rect()
         self.rect.centerx = x
         self.rect.bottom = y
@@ -63,7 +57,6 @@ class Bullet(pygame.sprite.Sprite):
         if self.rect.bottom < 0:
             self.kill()
 
-# Alien class
 class Alien(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
@@ -78,7 +71,7 @@ class Alien(pygame.sprite.Sprite):
         if self.rect.top > SCREEN_HEIGHT:
             self.rect.x = random.randrange(SCREEN_WIDTH - self.rect.width)
             self.rect.y = random.randrange(-100, -40)
-            self.speed_y = random.randrange(1, 4) 
+            self.speed_y = random.randrange(1, 4)
 
 class Direction(Enum):
     LEFT = 0
@@ -93,12 +86,15 @@ class GalacticShooterAI:
         self.reset()
 
     def reset(self):
+
         self.player = Player()
+        self.direction = Direction.DO_NOTHING
         self.all_sprites = pygame.sprite.Group(self.player)
         self.aliens = pygame.sprite.Group()
         self.bullets = pygame.sprite.Group()
         self.score = 0
         self.lives = 3
+        self.steps_survived = 0
         self.game_over = False
         self.place_alien()
 
@@ -118,18 +114,28 @@ class GalacticShooterAI:
 
         reward = 0
         game_over = False
+        self.steps_survived += 1
+
         if self.is_collision():
             game_over = True
-            reward = -10
+            reward -= 10
             return reward, game_over, self.score
+        
+        for alien in self.aliens:
+            if self.lives <= 0:
+                game_over = True
+            if alien.rect.top > SCREEN_HEIGHT - 10:
+                reward -= 10
+                self.lives -= 1
+                alien.kill()
 
         hits = pygame.sprite.groupcollide(self.bullets, self.aliens, True, True)
         for hit in hits:
             self.score += 1
-            reward = 10
+            reward += 10
             self.place_alien()
             
-        if len(self.aliens) < 3 and random.random() < 0.02:
+        if len(self.aliens) < 2 and random.random() < 0.02:
             self.place_alien()
 
         self.update_ui()
@@ -156,17 +162,12 @@ class GalacticShooterAI:
         pygame.display.flip()
 
     def move(self, action):
-        if action == Direction.LEFT:
+        if self.direction == Direction.LEFT:
             self.player.speed_x = -5
-        elif action == Direction.RIGHT:
+        elif self.direction == Direction.RIGHT:
             self.player.speed_x = 5
-        elif action == Direction.SHOOT:
+        elif self.direction == Direction.SHOOT:
             self.player.shoot(self.bullets, self.all_sprites)
-        elif action == Direction.DO_NOTHING:
+        elif self.direction == Direction.DO_NOTHING:
             self.player.speed_x = 0
-
-if __name__ == "__main__":
-    game = GalacticShooterAI()
-    while True:
-        action = random.choice(list(Direction))
-        game.play_step(action)
+        self.player.update() 
