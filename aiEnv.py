@@ -1,29 +1,36 @@
 import pygame
 import random
 import os
+import numpy as np
+import cv2
+from enum import Enum
+import gym
+from gym import spaces
 
-pygame.init()
-
+# Параметры игры
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
-
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
+# Инициализация Pygame
+pygame.init()
+font = pygame.font.Font(None, 25)
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Infinite Galactic Shooter")
 
-# Load images
+# Загрузка изображений
 player_image = pygame.image.load(os.path.join("images", "rocket-ship.png")).convert_alpha()
 player_image = pygame.transform.scale(player_image, (50, 50))
-
 alien_image = pygame.image.load(os.path.join("images", "space-invaders.png")).convert_alpha()
-alien_image = pygame.transform.scale(alien_image, (30, 30))
+alien_image = pygame.transform.scale(alien_image, (40, 40))
 
-life_image = pygame.image.load(os.path.join("images", "heart.png")).convert_alpha()
-life_image = pygame.transform.scale(life_image, (25, 25))
+class Direction(Enum):
+    LEFT = 0
+    RIGHT = 1
+    SHOOT = 2
+    DO_NOTHING = 3
 
-# Player class
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
@@ -34,26 +41,19 @@ class Player(pygame.sprite.Sprite):
         self.speed_x = 0
 
     def update(self):
-        self.speed_x = 0
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            self.speed_x = -5
-        if keys[pygame.K_RIGHT]:
-            self.speed_x = 5
         self.rect.x += self.speed_x
         self.rect.x = max(0, min(SCREEN_WIDTH - self.rect.width, self.rect.x))
 
-    def shoot(self):
+    def shoot(self, bullets, all_sprites):
         bullet = Bullet(self.rect.centerx, self.rect.top)
         all_sprites.add(bullet)
         bullets.add(bullet)
 
-# Bullet class
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
         self.image = pygame.Surface((3, 15))
-        self.image.fill((0, 255, 0))
+        self.image.fill((255, 0, 0))
         self.rect = self.image.get_rect()
         self.rect.centerx = x
         self.rect.bottom = y
@@ -64,7 +64,6 @@ class Bullet(pygame.sprite.Sprite):
         if self.rect.bottom < 0:
             self.kill()
 
-# Alien class
 class Alien(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
@@ -72,229 +71,109 @@ class Alien(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = random.randrange(SCREEN_WIDTH - self.rect.width)
         self.rect.y = random.randrange(-100, -40)
-        self.speed_y = random.randrange(1, 4)
+        self.speed_y = random.randrange(1, 2)
 
     def update(self):
         self.rect.y += self.speed_y
         if self.rect.top > SCREEN_HEIGHT:
             self.rect.x = random.randrange(SCREEN_WIDTH - self.rect.width)
             self.rect.y = random.randrange(-100, -40)
-            self.speed_y = random.randrange(1, 4)
+            self.speed_y = random.randrange(1, 2)
 
-# Sprite groups
-all_sprites = pygame.sprite.Group()
-aliens = pygame.sprite.Group()
-bullets = pygame.sprite.Group()
+class GalacticShooterEnv(gym.Env):
+    def __init__(self):
+        super(GalacticShooterEnv, self).__init__()
+        self.action_space = spaces.Discrete(4)
+        self.observation_space = spaces.Box(low=0, high=255, shape=(84, 84, 1), dtype=np.uint8)
+        self.reset()
 
-player = Player()
-all_sprites.add(player)
+    def reset(self):
+        self.player = Player()
+        self.all_sprites = pygame.sprite.Group(self.player)
+        self.aliens = pygame.sprite.Group()
+        self.bullets = pygame.sprite.Group()
+        self.score = 0
+        self.lives = 3
+        self.steps_survived = 0
+        self.game_over = False
+        self.place_alien()
+        return self._get_obs()
 
-score = 0
-lives = 3
+    def place_alien(self):
+        alien = Alien()
+        self.all_sprites.add(alien)
+        self.aliens.add(alien)
 
+    def _get_obs(self):
+        raw_pixels = pygame.surfarray.array3d(pygame.display.get_surface())
+        raw_pixels = np.transpose(raw_pixels, (1, 0, 2))
+        gray_pixels = cv2.cvtColor(raw_pixels, cv2.COLOR_RGB2GRAY)
+        gray_pixels = cv2.resize(gray_pixels, (84, 84), interpolation=cv2.INTER_AREA)
+        obs = np.expand_dims(gray_pixels, axis=-1)
+        return obs
 
-font = pygame.font.Font(None, 30)
-font2 = pygame.font.Font(None, 24)
-
-def reset():
-    global lives, score, game_over, all_sprites, aliens, bullets, player
-    score = 0
-    lives = 3
-    game_over = False
-
-    for sprite in all_sprites:
-        sprite.kill()
-    for alien in aliens:
-        alien.kill()
-    for bullet in bullets:
-        bullet.kill()
-
-    all_sprites = pygame.sprite.Group()
-    aliens = pygame.sprite.Group()
-    bullets = pygame.sprite.Group()
-
-    player = Player()
-    all_sprites.add(player)
-
-def play_step(action):
-    global lives, score, game_over
-    reset()
-
-    if action == 0:
-        player.shoot()
-    elif action == 1:
-        player.speed_x = -5
-    elif action == 2:
-        player.speed_x = 5
-    else:
-        player.speed_x = 0
-
-    all_sprites.update()
-
-    hits = pygame.sprite.groupcollide(bullets, aliens, True, True)
-
-    # Check if a alien is destroyed and increase score
-    if len(hits) > 0:
-        score += 1
-        
-    # Check if player gets an extra life from destroying aliens
-    if len(hits) > 0 and random.random() < 0.05:  # 5% chance
-        lives += 1
-
-    # Check if aliens reach the bottom
-    for alien in aliens:
-        if alien.rect.top > SCREEN_HEIGHT - 10:
-            lives -= 1
-            alien.kill()
-
-    # Spawn new aliens
-    if len(aliens) < 5 and random.random() < 0.02:
-        new_alien = Alien()
-        all_sprites.add(new_alien)
-        aliens.add(new_alien)
-
-    # Вычисление награды
-    reward = 0
-    if len(pygame.sprite.groupcollide(bullets, aliens, True, True)) > 0:
-        reward = 1  
-    if pygame.sprite.spritecollideany(player, aliens):
-        lives -= 1
-        reward = -10 
-    for alien in aliens:
-        if alien.rect.top > SCREEN_HEIGHT - 10:
-            lives -= 1
-            alien.kill
-            reward = -10
-
-    done = lives <= 0
-    return reward, done, score
-
-def load_highscore():
-    try:
-        with open("highscore.txt", "r") as file:
-            return int(file.readline())
-    except FileNotFoundError:
-        return 0
-
-def save_highscore(score):
-    with open("highscore.txt", "w") as file:
-        file.write(str(score))
-
-
-def main():
-    global lives, score
-    reset()
-    running = True
-    clock = pygame.time.Clock()
-
-    game_over = False
-
-    highscore = load_highscore()
-
-    while running:
+    def step(self, action):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    player.shoot()
+                pygame.quit()
+                quit()
 
-        if game_over:
-            screen.fill(BLACK)
-            game_over_text = font.render("Game Over.", True, WHITE)
-            screen.blit(game_over_text, (SCREEN_WIDTH // 2 - 60, SCREEN_HEIGHT // 2 - 100))
-            score_text = font.render(f"Your Score: {score}", True, WHITE)
-            screen.blit(score_text, (SCREEN_WIDTH // 2 - 60, SCREEN_HEIGHT // 2 - 50))
-            highscore_text = font.render(f"Highscore: {highscore}", True, WHITE)
-            screen.blit(highscore_text, (SCREEN_WIDTH // 2 - 60, SCREEN_HEIGHT // 2 ))
-            
+        self.move(action)
+        self.all_sprites.update()
 
-            exit_button = pygame.draw.rect(screen, WHITE, (SCREEN_WIDTH/2 - 50, 400, 100, 50))
+        reward = 0
+        self.steps_survived += 1
+        reward += 0.0001  # Награда за выживание
 
-            exit_text = font.render("Exit", True, BLACK)
-            screen.blit(exit_text, (SCREEN_WIDTH/2 - 25, 415))
-            
-            highscore_text = font.render(f"Refresh the Page", True, WHITE)
-            screen.blit(highscore_text, (SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT - 100 ))
+        if self.is_collision():
+            self.lives -= 1
+            reward -= 1
+            if self.lives <= 0:
+                self.game_over = True
+                return self._get_obs(), reward, self.game_over, {}
 
-            pygame.display.flip()
+        for alien in self.aliens:
+            if self.lives <= 0:
+                self.game_over = True
+            if alien.rect.top > SCREEN_HEIGHT:
+                reward -= 1
+                self.lives -= 1
+                alien.kill()
+                
 
-            for event in pygame.event.get():
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
-                    if exit_button.collidepoint(mouse_pos):
-                        running = False
+        hits = pygame.sprite.groupcollide(self.bullets, self.aliens, True, True)
+        for hit in hits:
+            self.score += 1
+            reward += 1
+            self.place_alien()
 
-        else:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        player.shoot()
+        if len(self.aliens) < 2 and random.random() < 0.02:
+            self.place_alien()
 
-            # ! Update
-            all_sprites.update()
+        obs = self._get_obs()
+        done = self.game_over
+        self.render()
+        return obs, reward, done, {}
 
-            # Check for collisions between bullets and aliens
-            hits = pygame.sprite.groupcollide(bullets, aliens, True, True)
+    def is_collision(self):
+        if pygame.sprite.spritecollide(self.player, self.aliens, False):
+            return True
+        return False
 
-            # Check if a alien is destroyed and increase score
-            if len(hits) > 0:
-                score += 1
-        
-            # Check if player gets an extra life from destroying aliens
-            if len(hits) > 0 and random.random() < 0.05:  # 5% chance
-                lives += 1
+    def render(self, mode='human'):
+        screen.fill(BLACK)
+        self.all_sprites.draw(screen)
+        pygame.display.flip()
 
-            # Check if aliens reach the bottom
-            for alien in aliens:
-                if alien.rect.top > SCREEN_HEIGHT - 10:
-                    lives -= 1
-                    alien.kill()
+    def move(self, action):
+        if action == Direction.LEFT.value:
+            self.player.speed_x = -5
+        elif action == Direction.RIGHT.value:
+            self.player.speed_x = 5
+        elif action == Direction.SHOOT.value:
+            self.player.shoot(self.bullets, self.all_sprites)
+        elif action == Direction.DO_NOTHING.value:
+            self.player.speed_x = 0
 
-            # Check for collisions between player and aliens
-            hits_player = pygame.sprite.spritecollide(player, aliens, True)
-            if hits_player:
-                lives -= 1
-
-            # Spawn new aliens
-            if len(aliens) < 5 and random.random() < 0.02:
-                new_alien = Alien()
-                all_sprites.add(new_alien)
-                aliens.add(new_alien)
-
-            # Draw
-            screen.fill(BLACK)
-            all_sprites.draw(screen)
-
-            # Draw score and lives
-            score_text = font.render(f"HI-Score: {highscore}", True, WHITE)
-            screen.blit(score_text, (10, 10))
-            score_text = font.render(f"Score: {score}", True, WHITE)
-            screen.blit(score_text, (10, 50))
-            life_text = font.render(f"Lives: ", True, WHITE)
-            screen.blit(life_text, (10, 90))
-            
-            move_controls = font2.render(f"Movement: Arrow Keys", True, WHITE)
-            screen.blit(move_controls, (610, 10))
-            shoot_control = font2.render(f"Shoot: SpaceBar", True, WHITE)
-            screen.blit(shoot_control, (610, 30))
-
-            # Draw life icons
-            for i in range(lives):
-                screen.blit(life_image, (85 + i * 40, 85))
-
-            pygame.display.flip()
-            clock.tick(60)
-
-            if lives <= 0:
-                game_over = True
-                if score > highscore:
-                    highscore = score
-                    save_highscore(highscore)
-    
-    pygame.quit()
-
-if __name__ == "__main__":
-    main()
+    def close(self):
+        pygame.quit()
