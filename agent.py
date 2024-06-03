@@ -30,12 +30,41 @@ class Agent:
         pass
 
 def train():
-    all_scores = []
-    all_penalties = []
-    epochs, penalties, reward, = 0, 0, 0
-    done = False
+    plot_scores = []
+    plot_mean_scores = []
+    total_score = 0
+    record = 0
+    agent = Agent()
+    game = GalacticShooterAI()
     while True:
-        pass
+        #get old state
+        state_old = agent.get_state(game)
+
+        #get state
+        final_move = agent.get_action(state_old)
+
+        #perform move and get new state
+        reward, done, score = game.play_step(final_move)
+        state_new = agent.get_state(game)
+
+        #traint short memory
+        agent.train_short_memory(state_old, final_move, reward, state_new, done)
+
+        #remember
+        agent.remember(state_old, final_move, reward, state_new, done)
+
+        if done:
+            #train long memory, plot results
+            game.reset()
+            agent.n_games += 1
+            agent.train_long_memory()
+
+            if score > record:
+                record = score
+            
+            print('Game', agent.n_games, 'Score', score, 'Record', record)
+
+
 
 if __name__ == '__main__':
     train()
