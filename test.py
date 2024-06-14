@@ -64,14 +64,15 @@ class Alien(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = random.randrange(SCREEN_WIDTH - self.rect.width)
         self.rect.y = random.randrange(-100, -40)
-        self.speed_y = random.randrange(1, 4)
+        self.speed_y = random.randrange(3, 4)
 
     def update(self):
         self.rect.y += self.speed_y
         if self.rect.top > SCREEN_HEIGHT:
             self.rect.x = random.randrange(SCREEN_WIDTH - self.rect.width)
             self.rect.y = random.randrange(-100, -40)
-            self.speed_y = random.randrange(1, 4)
+            self.speed_y = random.randrange(2, 4)
+        print(f"alien position ({self.rect.x}, {self.rect.y})") 
 
 class Direction(Enum):
     LEFT = 0
@@ -86,7 +87,6 @@ class GalacticShooterAI:
         self.reset()
 
     def reset(self):
-
         self.player = Player()
         self.direction = Direction.DO_NOTHING
         self.all_sprites = pygame.sprite.Group(self.player)
@@ -102,6 +102,7 @@ class GalacticShooterAI:
         alien = Alien()
         self.all_sprites.add(alien)
         self.aliens.add(alien)
+        
 
     def play_step(self, action):
         for event in pygame.event.get():
@@ -135,7 +136,7 @@ class GalacticShooterAI:
             reward += 10
             self.place_alien()
             
-        if len(self.aliens) < 2 and random.random() < 0.02:
+        if len(self.aliens) < 1 and random.random() < 0.02:
             self.place_alien()
 
         self.update_ui()
@@ -143,7 +144,8 @@ class GalacticShooterAI:
         return reward, game_over, self.score
 
     def is_collision(self):
-        if pygame.sprite.spritecollide(self.player, self.aliens, False):
+        collisions = pygame.sprite.spritecollide(self.player, self.aliens, True)
+        if collisions:
             self.lives -= 1
             if self.lives <= 0:
                 return True
@@ -162,12 +164,14 @@ class GalacticShooterAI:
         pygame.display.flip()
 
     def move(self, action):
-        if self.direction == Direction.LEFT:
+        print(f"action: {action}")
+        if action == Direction.LEFT:
             self.player.speed_x = -5
-        elif self.direction == Direction.RIGHT:
+        elif action == Direction.RIGHT:
             self.player.speed_x = 5
-        elif self.direction == Direction.SHOOT:
+        elif action == Direction.SHOOT:
             self.player.shoot(self.bullets, self.all_sprites)
-        elif self.direction == Direction.DO_NOTHING:
+        elif action == Direction.DO_NOTHING:
             self.player.speed_x = 0
-        self.player.update() 
+        self.player.update()
+

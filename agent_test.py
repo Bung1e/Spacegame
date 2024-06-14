@@ -5,7 +5,6 @@ from collections import deque
 from test import GalacticShooterAI, Direction
 from model_test import Linear_QNet, QTrainer
 from helper import plot
-import time  # Добавляем для задержки
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
@@ -17,16 +16,11 @@ class Agent:
         self.epsilon = 0
         self.gamma = 0.9
         self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = Linear_QNet(12, 256, 4)
+        self.model = Linear_QNet(8, 256, 4)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
     def get_state(self, game):
         player = game.player
-
-        dir_l = game.direction == Direction.LEFT
-        dir_r = game.direction == Direction.RIGHT
-        dir_u = game.direction == Direction.SHOOT
-        dir_d = game.direction == Direction.DO_NOTHING
 
         state = [
             player.rect.x,
@@ -37,10 +31,6 @@ class Agent:
             game.aliens.sprites()[0].rect.y if len(game.aliens) > 0 else 0,
             game.score,
             game.lives,
-            dir_l,
-            dir_r,
-            dir_u,
-            dir_d
         ]
         return np.array(state, dtype=int)
 
@@ -84,7 +74,9 @@ def train():
         state_old = agent.get_state(game)
         final_move = agent.get_action(state_old)
         
-        # print(f"Action taken: {final_move}")
+
+        print(f"Action taken (final_move): {final_move}")
+
         action = Direction.DO_NOTHING
         if final_move[0] == 1:
             action = Direction.LEFT
@@ -95,7 +87,7 @@ def train():
         elif final_move[3] == 1:
             action = Direction.DO_NOTHING
 
-        # print(f"Move action: {action}")
+        print(f"Move action (Direction): {action}")
 
         reward, done, score = game.play_step(action)
         state_new = agent.get_state(game)
@@ -119,8 +111,6 @@ def train():
             mean_score = total_score / agent.n_games
             plot_mean_scores.append(mean_score)
             plot(plot_scores, plot_mean_scores)
-
-        time.sleep(0.1)
 
 if __name__ == '__main__':
     train()
