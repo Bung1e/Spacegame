@@ -16,7 +16,7 @@ class Agent:
         self.epsilon = 0
         self.gamma = 0.9
         self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = Linear_QNet(8, 256, 4)
+        self.model = Linear_QNet(7, 256, 4)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
     def get_state(self, game):
@@ -26,7 +26,6 @@ class Agent:
             player.rect.x,
             player.rect.y,
             player.speed_x,
-            len(game.aliens),
             game.aliens.sprites()[0].rect.x if len(game.aliens) > 0 else 0,
             game.aliens.sprites()[0].rect.y if len(game.aliens) > 0 else 0,
             game.score,
