@@ -75,8 +75,6 @@ def train():
         final_move = agent.get_action(state_old)
         
 
-        print(f"Action taken (final_move): {final_move}")
-
         action = Direction.DO_NOTHING
         if final_move[0] == 1:
             action = Direction.LEFT
@@ -87,7 +85,6 @@ def train():
         elif final_move[3] == 1:
             action = Direction.DO_NOTHING
 
-        print(f"Move action (Direction): {action}")
 
         reward, done, score = game.play_step(action)
         state_new = agent.get_state(game)
